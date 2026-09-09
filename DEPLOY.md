@@ -1,3 +1,7 @@
+## Versão atual: v27
+
+A v27 integra as fontes/bibliografia do edital cadastradas em MATERIAIS diretamente na Sessão de Estudo.
+
 # App Medicina v26 — implantação completa
 
 ## Estrutura

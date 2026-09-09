@@ -1,21 +1,24 @@
-APP MEDICINA v26 — PLANOGRAMA GUIADO
+APP MEDICINA v27 — PLANOGRAMA GUIADO + FONTES DO EDITAL
 
 ARQUIVO PRINCIPAL
 - index.html
 
-NOVA ESTRUTURA
-1. INÍCIO: tela limpa com apenas o próximo estudo, progresso e atalhos.
-2. PLANOGRAMA: escolhe matérias/aulas concretas usando os RESUMOS reais sincronizados.
-3. SESSÃO DE ESTUDO: reúne na mesma página o resumo, os materiais, os flashcards e o timer do bloco.
-4. REVISÃO: painel de erros e revisão inteligente.
-5. MAIS: acesso a Flashcards, Quiz, Resumos, Materiais, Matérias, Criar cartão, Gerenciar e Dados.
+NOVIDADE DA v27
+- As unidades do EDITAL_UNESP_2027 agora procuram diretamente os materiais cadastrados como "Edital UNESP 2027" em MATERIAIS.
+- O vínculo é feito pelo unit_id (E04, E05 etc.), módulo e unidade de estudo.
+- Na Sessão, as referências aparecem separadas como FONTE DO EDITAL ou BIBLIOGRAFIA DO EDITAL.
+- Bibliografia fechada não é tratada como conteúdo integral nem como cobertura concluída.
 
-FLUXO RECOMENDADO
-Início -> Começar próximo estudo -> Sessão -> Resumo -> Material -> Flashcards -> Concluir -> Próximo bloco.
+ESTRUTURA
+1. INÍCIO: próximo estudo, progresso e atalhos.
+2. PLANOGRAMA: matérias/aulas concretas e unidades do edital.
+3. SESSÃO: resumo/roteiro, fontes e materiais, flashcards e timer.
+4. REVISÃO: erros e revisão inteligente.
+5. MAIS: Flashcards, Quiz, Resumos, Materiais, Matérias, Criar cartão, Gerenciar e Dados.
 
 SINCRONIZAÇÃO
-O app continua usando o Google Apps Script e a planilha Medicina - Flashcards, Quizzes, Resumos e Materiais.
+Planilha: Medicina - Flashcards, Quizzes, Resumos e Materiais
 Spreadsheet ID: 1h5-rvmc9h9P5VRzgAIttoJTH5FiiF9sV10b-vaSYk7k
 
 PUBLICAÇÃO
-Hospede todos os arquivos desta pasta juntos (Vercel ou hospedagem equivalente). Não abra apenas o HTML pelo gerenciador de arquivos do celular se quiser instalação PWA/offline completa.
+Hospede todos os arquivos desta pasta juntos. O cache offline foi atualizado para medicina-v27.
