@@ -1,0 +1,12 @@
+DEPLOY.md
+GOOGLE_APPS_SCRIPT_QUOTA_OTIMIZADO.gs
+LEIA-ME-PRIMEIRO.txt
+appsscript.json
+icon-192.png
+icon-512.png
+index.html
+index_mobile_corrigido_v26.html
+index_v26.html
+manifest.json
+sw.js
+vercel.json

@@ -1,0 +1,21 @@
+APP MEDICINA v26 — PLANOGRAMA GUIADO
+
+ARQUIVO PRINCIPAL
+- index.html
+
+NOVA ESTRUTURA
+1. INÍCIO: tela limpa com apenas o próximo estudo, progresso e atalhos.
+2. PLANOGRAMA: escolhe matérias/aulas concretas usando os RESUMOS reais sincronizados.
+3. SESSÃO DE ESTUDO: reúne na mesma página o resumo, os materiais, os flashcards e o timer do bloco.
+4. REVISÃO: painel de erros e revisão inteligente.
+5. MAIS: acesso a Flashcards, Quiz, Resumos, Materiais, Matérias, Criar cartão, Gerenciar e Dados.
+
+FLUXO RECOMENDADO
+Início -> Começar próximo estudo -> Sessão -> Resumo -> Material -> Flashcards -> Concluir -> Próximo bloco.
+
+SINCRONIZAÇÃO
+O app continua usando o Google Apps Script e a planilha Medicina - Flashcards, Quizzes, Resumos e Materiais.
+Spreadsheet ID: 1h5-rvmc9h9P5VRzgAIttoJTH5FiiF9sV10b-vaSYk7k
+
+PUBLICAÇÃO
+Hospede todos os arquivos desta pasta juntos (Vercel ou hospedagem equivalente). Não abra apenas o HTML pelo gerenciador de arquivos do celular se quiser instalação PWA/offline completa.
