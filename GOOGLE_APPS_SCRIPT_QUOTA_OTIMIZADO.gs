@@ -9,6 +9,7 @@ const SPREADSHEET_NAME = 'Medicina - Flashcards, Quizzes, Resumos e Materiais';
 
 const SHEET_FLASHCARDS = 'FLASHCARDS';
 const SHEET_RESUMOS = 'RESUMOS';
+const SHEET_CONFIG_RESUMOS = 'CONFIG_RESUMOS';
 const SHEET_MATERIAIS = 'MATERIAIS';
 const SHEET_EDITAL = 'EDITAL_UNESP_2027';
 const SHEET_BASE_PLANO = 'BASE_PLANO_ESTUDOS';
@@ -21,7 +22,7 @@ const DEFAULT_CALLBACK = '__receiveFlashcardsSheetSync';
 // Cache curto para impedir que o iPhone releia toda a planilha a cada abertura.
 // 300 s = 5 minutos.
 const CACHE_TTL_SECONDS = 300;
-const CACHE_PREFIX = 'medicina_api_v4_';
+const CACHE_PREFIX = 'medicina_api_v7_';
 const CACHE_META_KEY = CACHE_PREFIX + 'meta';
 const CACHE_CHUNK_PREFIX = CACHE_PREFIX + 'chunk_';
 // Mantemos os blocos pequenos para ficar abaixo do limite por item do CacheService.
@@ -44,7 +45,7 @@ function doGet(e) {
         spreadsheetId: SPREADSHEET_ID,
         spreadsheetName: SPREADSHEET_NAME,
         generatedAt: new Date().toISOString(),
-        apiVersion: 4
+        apiVersion: 7
       });
     }
 
@@ -62,7 +63,7 @@ function doGet(e) {
       error: String(err && err.message ? err.message : err),
       spreadsheetId: SPREADSHEET_ID,
       generatedAt: new Date().toISOString(),
-      apiVersion: 4
+      apiVersion: 7
     });
   }
 }
@@ -101,7 +102,7 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({
         ok: true,
         savedAt: new Date().toISOString(),
-        apiVersion: 6
+        apiVersion: 7
       }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -110,7 +111,7 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({
         ok: false,
         error: String(err && err.message ? err.message : err),
-        apiVersion: 6
+        apiVersion: 7
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -148,6 +149,7 @@ function buildPayload_() {
   // RESUMOS: os nomes já vêm da planilha sincronizados com o Drive.
   // Não sintetizar/apelidar nomes aqui; apenas ordenar por semestre, matéria e Aula.
   const summaries = readSummaries_(ss.getSheetByName(SHEET_RESUMOS));
+  const summaryConfig = readKeyValueConfig_(ss.getSheetByName(SHEET_CONFIG_RESUMOS));
   const materials = readObjects_(ss.getSheetByName(SHEET_MATERIAIS));
   const editalUnits = readObjects_(ss.getSheetByName(SHEET_EDITAL));
   const planBase = readObjects_(ss.getSheetByName(SHEET_BASE_PLANO));
@@ -160,10 +162,12 @@ function buildPayload_() {
     spreadsheetId: ss.getId(),
     spreadsheetName: ss.getName(),
     generatedAt: new Date().toISOString(),
-    apiVersion: 4,
+    apiVersion: 7,
     cacheSeconds: CACHE_TTL_SECONDS,
     cards: cards,
     summaries: summaries,
+    summaryConfig: summaryConfig,
+    summaryModelVersion: summaryConfig.summary_model || 'RICH_SOURCE_V1',
     materials: materials,
     editalUnits: editalUnits,
     planBase: planBase,
@@ -310,6 +314,19 @@ function semesterOrder_(semester) {
   const raw = String(semester || '').toLowerCase();
   const match = raw.match(/(\d+)/);
   return match ? Number(match[1]) : 999999;
+}
+
+function readKeyValueConfig_(sheet) {
+  const out = {};
+  if (!sheet) return out;
+
+  const rows = sheet.getDataRange().getDisplayValues();
+  for (let i = 1; i < rows.length; i++) {
+    const key = String(rows[i][0] || '').trim();
+    if (key) out[key] = String(rows[i][1] || '').trim();
+  }
+
+  return out;
 }
 
 function readPlanConfig_(sheet) {

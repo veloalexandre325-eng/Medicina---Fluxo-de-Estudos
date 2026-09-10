@@ -783,8 +783,17 @@ function persistState(markCloudChange=true){
 function save(){persistState(true);refresh()}
 function esc(v){return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;")}
 function safeImageSrc(v){const s=String(v||"").trim();if(/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(s))return s;if(/^blob:/i.test(s))return s;if(/^https?:\/\//i.test(s))return s;if(/^(?:\.\/)?assets\/[A-Za-z0-9_./-]+\.(?:png|jpe?g|webp|gif)$/i.test(s))return s.startsWith("./")?s:"./"+s;return""}
+const EMBEDDED_IMAGES={};
+const SOURCE_VISUAL_RULES=[];
 function resolveCardImage(c){
-  return safeImageSrc(c&&c.image);
+  const own=safeImageSrc(c&&c.image); if(own) return own;
+  const text=`${c?.question||""} ${c?.answer||""} ${(c?.topics||[]).join(" ")} ${c?.subject||""} ${c?.sourceName||""}`.toLowerCase();
+  for(const r of SOURCE_VISUAL_RULES) if(r.re.test(text)) return safeImageSrc(r.src);
+  const topicText=((c?.topics||[]).join(" ")+" "+(c?.subject||"")).toLowerCase();
+  if(/bmf1 .*fisiologia cardiorrespiratória|homeostasia e forças de starling/.test(topicText)) return safeImageSrc(EMBEDDED_IMAGES["image4.png"]);
+  if(/bmf1 .*histologia cardiorrespiratória|células sanguíneas/.test(topicText)) return safeImageSrc(EMBEDDED_IMAGES["image7.png"]);
+  if(/bmf1 .*anatomia cardiorrespiratória|semiologia respiratória|semiologia cardíaca|radiologia de tórax/.test(topicText)) return safeImageSrc(EMBEDDED_IMAGES["image4.png"]);
+  return "";
 }
 function splitMediaUrls(v){return String(v||"").split(/[\n;]+/).map(x=>x.trim()).filter(Boolean)}
 function extractHttpUrls(v){return String(v||"").match(/https?:\/\/[^\s<>"']+/g)||[]}
@@ -845,9 +854,6 @@ function materialPreviewUrl(v){
   if((m=u.match(/drive\.google\.com\/file\/d\/([^/]+)/i)))return `https://drive.google.com/file/d/${m[1]}/preview`;
   if(/\.pdf(?:$|[?#])/i.test(u))return u;
   return"";
-}
-function summarySourcePreview(x){
-  return materialPreviewUrl(String(x&&x.source_url||"").trim());
 }
 function materialMediaHtml(x){
   const imgs=[];splitMediaUrls(x&&x.image_url).forEach(u=>{u=safeImageSrc(u);if(u&&!imgs.includes(u))imgs.push(u)});
@@ -1127,8 +1133,8 @@ function mergeSheet(payload){if(!payload||payload.ok!==true)throw Error(payload?
     const byKey=new Map(state.cards.filter(c=>c.syncKey).map(c=>[c.syncKey,c])),byContent=new Map(state.cards.map(c=>[norm(c.question)+"|"+norm(c.answer),c]));
     for(const raw of payload.cards){const q=String(raw.question||"").trim(),a=String(raw.answer||"").trim();if(!q||!a||isExcludedItem(raw))continue;const semester=String(raw.semester||raw.semestre||"Sem semestre").trim()||"Sem semestre",subject=String(raw.subject||raw.category||"NotebookLM").trim()||"NotebookLM",top=splitList(raw.topics),image=safeImageSrc(raw.image||raw.imageUrl||raw.image_url),sourceKind=String(raw.sourceKind||raw.source_kind||""),sourceName=String(raw.sourceName||raw.source_name||""),sourceUrl=String(raw.sourceUrl||raw.source_url||""),key=String(raw.syncKey||raw.sync_key||`${payload.spreadsheetId||"sheet"}|${norm(q)}`),d=splitList(raw.distractors).filter(x=>norm(x)!==norm(a)).slice(0,3);let c=byKey.get(key)||byContent.get(norm(q)+"|"+norm(a));if(c){Object.assign(c,{question:q,answer:a,semester,subject,category:subject,topics:top,image:image||c.image,distractors:d,sourceKind:sourceKind||c.sourceKind,sourceName:sourceName||c.sourceName,sourceUrl:sourceUrl||c.sourceUrl,syncKey:key,syncSource:"Google Sheets",syncedAt:Date.now()});upd++}else{c=normalizeCard({id:crypto.randomUUID(),question:q,answer:a,semester,subject,topics:top,image,distractors:d,sourceKind,sourceName,sourceUrl,tags:["Sincronizado"],syncKey:key,syncSource:"Google Sheets",createdAt:Date.now()});state.cards.push(c);add++}}
   }
-  summaries=Array.isArray(payload.summaries)?payload.summaries.filter(x=>!isExcludedItem(x)).map(x=>({semester:String(x.semester||"Sem semestre"),subject:String(x.subject||"Sem matéria"),topic:String(x.topic||"Sem tópico"),title:String(x.title||""),summary:String(x.summary||""),key_terms:String(x.key_terms||""),remember:String(x.remember||""),image_url:String(x.image_url||""),image_caption:String(x.image_caption||""),summary_model:String(x.summary_model||payload.summaryModelVersion||""),source_kind:String(x.source_kind||""),source_name:String(x.source_name||""),source_url:String(x.source_url||""),updated_at:String(x.updated_at||"")})):[];
-  materials=Array.isArray(payload.materials)?payload.materials.filter(x=>!isExcludedItem(x)).map(x=>({semester:String(x.semester||"Sem semestre"),subject:String(x.subject||"Sem matéria"),topic:String(x.topic||"Sem tópico"),title:String(x.title||""),material_type:String(x.material_type||""),description:String(x.description||""),file_url:String(x.file_url||""),image_url:String(x.image_url||""),image_caption:String(x.image_caption||""),source_kind:String(x.source_kind||""),source_name:String(x.source_name||""),source_url:String(x.source_url||""),updated_at:String(x.updated_at||"")})):[];
+  summaries=Array.isArray(payload.summaries)?payload.summaries.filter(x=>!isExcludedItem(x)).map(x=>({semester:String(x.semester||"Sem semestre"),subject:String(x.subject||"Sem matéria"),topic:String(x.topic||"Sem tópico"),title:String(x.title||""),summary:String(x.summary||""),key_terms:String(x.key_terms||""),remember:String(x.remember||""),image_url:String(x.image_url||""),image_caption:String(x.image_caption||""),source_kind:String(x.source_kind||""),source_name:String(x.source_name||""),source_url:String(x.source_url||""),updated_at:String(x.updated_at||"")})):[];
+  materials=Array.isArray(payload.materials)?payload.materials.filter(x=>!isExcludedItem(x)).map(x=>({semester:String(x.semester||"Sem semestre"),subject:String(x.subject||"Sem matéria"),topic:String(x.topic||"Sem tópico"),title:String(x.title||""),material_type:String(x.material_type||""),description:String(x.description||""),file_url:String(x.file_url||""),image_url:String(x.image_url||""),source_kind:String(x.source_kind||""),source_name:String(x.source_name||""),source_url:String(x.source_url||""),updated_at:String(x.updated_at||"")})):[];
   editalUnits=Array.isArray(payload.editalUnits)?payload.editalUnits:[];
   planBase=Array.isArray(payload.planBase)?payload.planBase:[];
   studyPlan=Array.isArray(payload.studyPlan)?payload.studyPlan:[];
