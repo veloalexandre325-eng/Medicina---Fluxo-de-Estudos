@@ -97,6 +97,7 @@
     .summary-source-embeds{display:grid;gap:12px;margin:8px 0 14px}
     .summary-source-embed{width:100%;height:520px;border:1px solid var(--border);border-radius:14px;background:#fff;overflow:hidden}
     .summary-source-embed iframe{width:100%;height:100%;border:0;background:#fff}
+    .summary-source-embed.is-image{height:360px}
     .summary-source-caption{font-size:.82rem;color:var(--muted);margin-top:6px}
 
     .review-source{font-size:.83rem}.review-source a{color:var(--primary-dark);font-weight:650}
@@ -800,8 +801,13 @@ function extractHttpUrls(v){return String(v||"").match(/https?:\/\/[^\s<>"']+/g)
 function driveImageSrc(v){
   const u=String(v||"").trim(); if(!u)return"";
   const m=u.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
-  if(m)return `https://drive.google.com/thumbnail?id=${encodeURIComponent(m[1])}&sz=w1600`;
+  if(m)return ""; // arquivos privados do Drive não são tratados como imagem direta
   return safeImageSrc(u);
+}
+function driveFilePreviewUrl(v){
+  const u=String(v||"").trim(); if(!u)return"";
+  const m=u.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
+  return m?`https://drive.google.com/file/d/${m[1]}/preview`:"";
 }
 function normMediaKey(v){return String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim()}
 function driveRefId(v){const u=String(v||"");const m=u.match(/(?:\/d\/|\/folders\/)([^/?#]+)/i);return m?m[1]:""}
@@ -826,8 +832,13 @@ function summaryRelatedMaterials(x){
 }
 function summaryMedia(x){
   const images=[],embeds=[];
-  const addImage=(u,label)=>{u=driveImageSrc(u);if(!u||images.some(z=>z.src===u))return;images.push({src:u,label:String(label||x?.image_caption||"Figura da própria fonte")})};
-  const addEmbed=(u,label)=>{u=materialPreviewUrl(u);if(!u||embeds.some(z=>z.src===u))return;embeds.push({src:u,label:String(label||"Material-base com figuras")})};
+  const addEmbedRaw=(src,label,kind="document")=>{if(!src||embeds.some(z=>z.src===src))return;embeds.push({src,label:String(label||"Material-base com figuras"),kind})};
+  const addImage=(u,label)=>{
+    const preview=driveFilePreviewUrl(u);
+    if(preview){addEmbedRaw(preview,label||x?.image_caption||"Imagem da própria fonte","image");return;}
+    u=driveImageSrc(u);if(!u||images.some(z=>z.src===u))return;images.push({src:u,label:String(label||x?.image_caption||"Figura da própria fonte")});
+  };
+  const addEmbed=(u,label,kind="document")=>{u=materialPreviewUrl(u);if(!u)return;addEmbedRaw(u,label,kind)};
   splitMediaUrls(x&&x.image_url).forEach((u,i)=>addImage(u,x?.image_caption||`Figura da própria fonte ${i+1}`));
   extractHttpUrls(x&&x.source_url).forEach(u=>addEmbed(u,x?.source_name||"Fonte do resumo"));
   const seenNames=new Set();
@@ -842,7 +853,7 @@ function summaryMedia(x){
     const file=String(m.file_url||"").trim();
     if(file && !splitMediaUrls(m.image_url).length) addEmbed(file,name||m.source_name||"Material-base");
   }
-  return {images:images.slice(0,12),embeds:embeds.slice(0,2)};
+  return {images:images.slice(0,12),embeds:embeds.slice(0,12)};
 }
 function summaryVisuals(x){return summaryMedia(x).images.map(z=>z.src)}
 function materialPreviewUrl(v){
@@ -856,12 +867,20 @@ function materialPreviewUrl(v){
   return"";
 }
 function materialMediaHtml(x){
-  const imgs=[];splitMediaUrls(x&&x.image_url).forEach(u=>{u=safeImageSrc(u);if(u&&!imgs.includes(u))imgs.push(u)});
-  const file=String(x&&x.file_url||"").trim(); const direct=safeImageSrc(file);
-  if(direct&&/\.(png|jpe?g|webp|gif)(?:$|[?#])/i.test(direct)&&!imgs.includes(direct))imgs.push(direct);
+  const imgs=[],previews=[];
+  splitMediaUrls(x&&x.image_url).forEach(u=>{
+    const p=driveFilePreviewUrl(u);
+    if(p){if(!previews.includes(p))previews.push(p);return;}
+    u=safeImageSrc(u);if(u&&!imgs.includes(u))imgs.push(u);
+  });
+  const file=String(x&&x.file_url||"").trim();
+  const drivePreview=driveFilePreviewUrl(file);
+  if(drivePreview&&!previews.includes(drivePreview))previews.push(drivePreview);
+  else{const direct=safeImageSrc(file);if(direct&&/\.(png|jpe?g|webp|gif)(?:$|[?#])/i.test(direct)&&!imgs.includes(direct))imgs.push(direct);}
   const imageHtml=imgs.map((src,i)=>`<figure><img src="${esc(src)}" alt="Imagem do material ${i+1}" loading="lazy"><figcaption class="media-caption">Imagem ${i+1} — toque/clique para ampliar</figcaption></figure>`).join("");
-  const preview=materialPreviewUrl(file);
-  const previewHtml=preview?`<div class="material-embed"><iframe src="${esc(preview)}" loading="lazy" allow="fullscreen" title="Visualização do material"></iframe></div>`:"";
+  const regularPreview=materialPreviewUrl(file);
+  if(regularPreview&&!previews.includes(regularPreview))previews.push(regularPreview);
+  const previewHtml=previews.slice(0,12).map((src,i)=>`<div class="material-embed"><iframe src="${esc(src)}" loading="lazy" allow="fullscreen" title="Visualização do material ${i+1}"></iframe></div>`).join("");
   return imageHtml||previewHtml?`<div class="material-media">${imageHtml}${previewHtml}</div>`:"";
 }
 function setImageElement(el,src,alt="Imagem do cartão"){const safe=safeImageSrc(src); if(safe){el.onerror=()=>{el.removeAttribute("src");el.alt="";el.style.display="none"}; el.src=safe; el.alt=alt; el.style.display="block"}else{el.removeAttribute("src"); el.alt=""; el.style.display="none"}}
@@ -882,7 +901,7 @@ function summaryVals(type){if(type==="semester")return [...new Set(summaries.map
 function materialVals(type){if(type==="semester")return [...new Set(materials.map(x=>x.semester).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR",{numeric:true}));if(type==="subject")return [...new Set(materials.map(x=>x.subject).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));return [...new Set(materials.map(x=>x.topic).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"))}
 function renderExternalChoices(typeId,boxId,valuesFn,onChange,preserve=true){const t=document.querySelector("#"+typeId),b=document.querySelector("#"+boxId);const old=preserve?new Set(selected(boxId)):new Set();const list=valuesFn(t.value);b.innerHTML=list.length?list.map(v=>{const label=typeId==="summaryFilterType"&&t.value==="topic"?summaryDisplayLabel(v):v;return `<label class="choice"><input type="checkbox" value="${esc(v)}" ${old.has(v)?"checked":""}><span>${esc(label)}</span></label>`}).join(""):'<span class="muted">Nenhuma opção disponível.</span>';b.querySelectorAll("input").forEach(i=>i.addEventListener("change",()=>onChange&&onChange()))}
 function externalMatch(item,type,sel){if(!sel.length)return true;if(type==="semester")return sel.includes(item.semester);if(type==="subject")return sel.includes(item.subject);return sel.includes(item.topic)}
-function renderSummaries(){const type=document.querySelector("#summaryFilterType").value,sel=selected("summaryChoices"),q=document.querySelector("#summarySearch").value.trim().toLowerCase(),box=document.querySelector("#summaryList");const rows=summaries.filter(x=>externalMatch(x,type,sel)&&`${x.semester} ${x.subject} ${x.topic} ${x.title} ${x.summary} ${x.key_terms}`.toLowerCase().includes(q));box.innerHTML=rows.length?rows.map(x=>{const media=summaryMedia(x),imgs=media.images,embeds=media.embeds,lesson=summaryLessonLabel(x);return `<article class="content-card"><div class="classification"><span class="semester">${esc(x.semester)}</span>${lesson&&lesson!=="Resumo"?`<span class="topic">${esc(lesson)}</span>`:""}</div><h3>${esc(x.subject||"Sem matéria")}</h3>${lesson&&lesson!=="Resumo"?`<div class="muted" style="margin-top:-4px;font-weight:650">${esc(lesson)}</div>`:""}${imgs.length?`<div class="summary-gallery">${imgs.map((z,i)=>`<figure><img src="${esc(z.src)}" alt="Imagem da própria fonte do resumo ${i+1}" loading="eager"><figcaption>${esc(z.label||`Figura da própria fonte ${i+1}`)}</figcaption></figure>`).join("")}</div>`:""}${embeds.length?`<div class="summary-source-embeds">${embeds.map(z=>`<div><div class="summary-source-embed"><iframe src="${esc(z.src)}" allow="fullscreen" title="Prévia aberta da fonte do resumo"></iframe></div><div class="summary-source-caption">${esc(z.label||"Prévia aberta do material-base")}</div></div>`).join("")}</div>`:""}<div class="summary-text">${esc(x.summary||"")}</div>${x.key_terms?`<div><strong>Termos essenciais</strong><div class="key-terms">${splitList(x.key_terms).map(t=>`<span class="term-pill">${esc(t)}</span>`).join("")}</div></div>`:""}${x.remember?`<div><strong>O que preciso lembrar</strong><div class="remember-box">${esc(x.remember)}</div></div>`:""}${x.source_name?`<div class="muted">Fonte: ${esc(x.source_name)}</div>`:""}</article>`}).join(""):'<div class="muted">Nenhum resumo encontrado.</div>'}
+function renderSummaries(){const type=document.querySelector("#summaryFilterType").value,sel=selected("summaryChoices"),q=document.querySelector("#summarySearch").value.trim().toLowerCase(),box=document.querySelector("#summaryList");const rows=summaries.filter(x=>externalMatch(x,type,sel)&&`${x.semester} ${x.subject} ${x.topic} ${x.title} ${x.summary} ${x.key_terms}`.toLowerCase().includes(q));box.innerHTML=rows.length?rows.map(x=>{const media=summaryMedia(x),imgs=media.images,embeds=media.embeds,lesson=summaryLessonLabel(x);return `<article class="content-card"><div class="classification"><span class="semester">${esc(x.semester)}</span>${lesson&&lesson!=="Resumo"?`<span class="topic">${esc(lesson)}</span>`:""}</div><h3>${esc(x.subject||"Sem matéria")}</h3>${lesson&&lesson!=="Resumo"?`<div class="muted" style="margin-top:-4px;font-weight:650">${esc(lesson)}</div>`:""}${imgs.length?`<div class="summary-gallery">${imgs.map((z,i)=>`<figure><img src="${esc(z.src)}" alt="Imagem da própria fonte do resumo ${i+1}" loading="eager"><figcaption>${esc(z.label||`Figura da própria fonte ${i+1}`)}</figcaption></figure>`).join("")}</div>`:""}${embeds.length?`<div class="summary-source-embeds">${embeds.map(z=>`<div><div class="summary-source-embed ${z.kind==="image"?"is-image":""}"><iframe src="${esc(z.src)}" loading="eager" allow="fullscreen" title="Prévia aberta da fonte do resumo"></iframe></div><div class="summary-source-caption">${esc(z.label||"Prévia aberta do material-base")}</div></div>`).join("")}</div>`:""}<div class="summary-text">${esc(x.summary||"")}</div>${x.key_terms?`<div><strong>Termos essenciais</strong><div class="key-terms">${splitList(x.key_terms).map(t=>`<span class="term-pill">${esc(t)}</span>`).join("")}</div></div>`:""}${x.remember?`<div><strong>O que preciso lembrar</strong><div class="remember-box">${esc(x.remember)}</div></div>`:""}${x.source_name?`<div class="muted">Fonte: ${esc(x.source_name)}</div>`:""}</article>`}).join(""):'<div class="muted">Nenhum resumo encontrado.</div>'}
 function renderSubjectOverview(){
   const box=document.querySelector("#subjectOverview");
   if(!box)return;
