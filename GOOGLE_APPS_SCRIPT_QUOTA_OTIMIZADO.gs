@@ -22,7 +22,7 @@ const DEFAULT_CALLBACK = '__receiveFlashcardsSheetSync';
 // Cache curto para impedir que o iPhone releia toda a planilha a cada abertura.
 // 300 s = 5 minutos.
 const CACHE_TTL_SECONDS = 300;
-const CACHE_PREFIX = 'medicina_api_v7_';
+const CACHE_PREFIX = 'medicina_api_v8_';
 const CACHE_META_KEY = CACHE_PREFIX + 'meta';
 const CACHE_CHUNK_PREFIX = CACHE_PREFIX + 'chunk_';
 // Mantemos os blocos pequenos para ficar abaixo do limite por item do CacheService.
@@ -37,6 +37,8 @@ function doGet(e) {
   ).toLowerCase();
 
   try {
+    if(action === 'aistatus') return jsonp_(callback, aiStatus_());
+    if(action === 'airesult') return jsonp_(callback, aiReadResult_(e.parameter.requestId));
     // Ping não acessa a planilha e praticamente não consome quota de Sheets.
     if (action === 'ping') {
       return jsonp_(callback, {
@@ -45,7 +47,7 @@ function doGet(e) {
         spreadsheetId: SPREADSHEET_ID,
         spreadsheetName: SPREADSHEET_NAME,
         generatedAt: new Date().toISOString(),
-        apiVersion: 7
+        apiVersion: 8
       });
     }
 
@@ -63,7 +65,7 @@ function doGet(e) {
       error: String(err && err.message ? err.message : err),
       spreadsheetId: SPREADSHEET_ID,
       generatedAt: new Date().toISOString(),
-      apiVersion: 7
+      apiVersion: 8
     });
   }
 }
@@ -75,6 +77,8 @@ function doPost(e) {
       (e && e.postData && e.postData.contents) || '{}'
     );
     const action = String(body.action || '').toLowerCase();
+
+    if (action === 'generate') return aiGenerate_(body);
 
     if (action !== 'saveprogress') {
       throw new Error('Ação POST inválida.');
@@ -102,7 +106,7 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({
         ok: true,
         savedAt: new Date().toISOString(),
-        apiVersion: 7
+        apiVersion: 8
       }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -111,7 +115,7 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({
         ok: false,
         error: String(err && err.message ? err.message : err),
-        apiVersion: 7
+        apiVersion: 8
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -162,9 +166,10 @@ function buildPayload_() {
     spreadsheetId: ss.getId(),
     spreadsheetName: ss.getName(),
     generatedAt: new Date().toISOString(),
-    apiVersion: 7,
+    apiVersion: 8,
     cacheSeconds: CACHE_TTL_SECONDS,
     cards: cards,
+    quizzes: readExamQuestions_(ss.getSheetByName('QUIZZES')),
     summaries: summaries,
     summaryConfig: summaryConfig,
     summaryModelVersion: summaryConfig.summary_model || 'RICH_SOURCE_V1',
@@ -564,4 +569,15 @@ function testarPlanilha() {
 function limparCache() {
   clearPayloadCache_();
   return 'Cache limpo.';
+}
+
+/** A aba QUIZZES é opcional; usa o gabarito por letra para evitar divergências textuais. */
+function readExamQuestions_(sheet) {
+  if(!sheet)return [];
+  return readObjects_(sheet).filter(x=>String(x.active||'TRUE').toUpperCase()!=='FALSE').map(x=>{
+    const indexed=['a','b','c','d','e'].map(letter=>({letter:letter.toUpperCase(),text:String(x['option_'+letter]||'').trim()})).filter(o=>o.text);
+    const correct=indexed.find(o=>o.letter===String(x.correct_option||'').trim().toUpperCase());
+    if(!x.quiz_id||!x.stem||!correct||indexed.length<2||new Set(indexed.map(o=>o.text.toLowerCase())).size!==indexed.length)return null;
+    return {id:'quiz:'+x.quiz_id,syncKey:'quiz:'+x.quiz_id,semester:x.semester,subject:x.subject,topics:[x.topic],question:x.stem,answer:correct.text,distractors:indexed.filter(o=>o!==correct).map(o=>o.text),explanation:x.feedback||'',difficulty:x.difficulty,sourceName:x.source_name,sourceUrl:x.source_url,sourceKind:'quiz_banco',isExamQuestion:true};
+  }).filter(Boolean);
 }
