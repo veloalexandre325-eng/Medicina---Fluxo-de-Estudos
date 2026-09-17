@@ -1,12 +1,25 @@
-ARQUIVOS ALTERADOS — IMAGENS NA SESSÃO DE ESTUDOS
+APP MEDICINA v31 — MAHJONG INTEGRADO
 
-Arquivos incluídos:
+Arquivo principal:
 - index.html
-- index_v28.html
-- index_mobile_corrigido_v28.html
-- sw.js
 
-Alteração principal:
-As imagens, termos essenciais e o bloco "O que preciso lembrar" dos resumos agora também aparecem quando o resumo é acessado pela Sessão de estudo.
+Modificações desta versão:
+- nova aba “Mahjong” no menu superior;
+- novo botão “Mahjong” na barra inferior do celular;
+- atalho para o jogo dentro da seção “Mais”;
+- jogo carregado dentro do app de Medicina;
+- botão para abrir o Mahjong em tela cheia;
+- navegação inferior ajustada para seis opções;
+- interface responsiva para computador e celular.
 
-O sw.js também foi atualizado para usar um novo cache e evitar que o navegador mantenha a versão anterior.
+COMO ABRIR
+1. Mantenha conexão com a internet para carregar o Mahjong.
+2. Abra o arquivo index.html no navegador.
+3. Entre na aba Mahjong.
+
+COMO PUBLICAR
+Envie todo o conteúdo desta pasta para o mesmo serviço em que o app de
+Medicina está hospedado. O arquivo index.html deve permanecer na raiz.
+
+Observação: o Mahjong é carregado a partir da versão publicada do jogo. Assim,
+as futuras atualizações do jogo aparecem automaticamente dentro desta aba.

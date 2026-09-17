@@ -196,6 +196,16 @@
     .ai-context-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#f7fbfa;border-radius:999px;padding:6px 9px;font-size:.8rem;font-weight:750;color:var(--primary-dark);margin:3px 3px 0 0}
     .ai-thinking{display:inline-flex;align-items:center;gap:7px}.ai-thinking:after{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;animation:aiPulse 1s infinite alternate}@keyframes aiPulse{to{opacity:.2}}
     @media(max-width:800px){.ai-shell{grid-template-columns:1fr}.ai-chat{grid-template-rows:auto minmax(300px,1fr) auto}.ai-messages{max-height:56vh}.ai-msg{max-width:94%}}
+
+    /* v31 — Mahjong de Estudos integrado */
+    .mahjong-shell{overflow:hidden;border:1px solid var(--border);border-radius:22px;background:#fff;box-shadow:0 12px 32px rgba(13,46,57,.1)}
+    .mahjong-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#f7fbfa,#e8f6f3)}
+    .mahjong-head h2{margin:0 0 4px}.mahjong-head p{margin:0;color:var(--muted);line-height:1.4}
+    .mahjong-open{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:10px 14px;border:1px solid #9fcfca;border-radius:12px;background:#fff;color:var(--primary-dark);font-weight:850;text-decoration:none}
+    .mahjong-open:hover{background:var(--soft-accent)}
+    .mahjong-frame{display:block;width:100%;height:min(820px,calc(100vh - 190px));min-height:640px;border:0;background:#064a42}
+    @media(max-width:760px){.bottom-nav{grid-template-columns:repeat(6,1fr)}.mahjong-head{align-items:flex-start;flex-direction:column}.mahjong-open{width:100%}.mahjong-frame{height:calc(100vh - 170px);min-height:620px}}
+    @media(max-width:390px){.bottom-tab{font-size:.64rem;padding-inline:1px}}
   </style>
 </head>
 <body>
@@ -212,6 +222,7 @@
     <button class="tab active" data-tab="home">Início</button>
     <button class="tab" data-tab="plan">Planograma</button>
     <button class="tab" data-tab="session">Sessão de estudo</button>
+    <button class="tab" data-tab="mahjong">Mahjong</button>
     <button class="tab" data-tab="ai">IA</button>
     <button class="tab" data-tab="review">Revisão</button>
     <button class="tab" data-tab="more">Mais</button>
@@ -469,12 +480,28 @@
   </section>
 
 
+  <section id="mahjong" class="panel">
+    <div class="mahjong-shell">
+      <div class="mahjong-head">
+        <div>
+          <div class="study-room-kicker">JOGO DE ESTUDOS</div>
+          <h2>Mahjong de Medicina</h2>
+          <p>Escolha a matéria do nível e avance respondendo às questões, casos clínicos e desafios.</p>
+        </div>
+        <a class="mahjong-open" href="https://mahjong-jardim-de-jade.li-kataoka2018.chatgpt.site/?source=medicina-v31" target="_blank" rel="noopener">Abrir em tela cheia ↗</a>
+      </div>
+      <iframe class="mahjong-frame" title="Mahjong de Medicina" src="https://mahjong-jardim-de-jade.li-kataoka2018.chatgpt.site/?source=medicina-v31" loading="lazy" allow="fullscreen"></iframe>
+    </div>
+  </section>
+
+
   <section id="more" class="panel">
     <div class="box">
       <div class="study-room-kicker">BIBLIOTECA E FERRAMENTAS</div>
       <h2>Todo o restante do app</h2>
       <p class="muted">A tela principal fica limpa; os recursos completos continuam disponíveis aqui.</p>
       <div class="tool-grid">
+        <button class="tool-card" type="button" data-open-tab="mahjong"><b>麻</b><span>Mahjong</span><small>Jogo com questões da matéria escolhida</small></button>
         <button class="tool-card" type="button" data-open-tab="ai"><b>✦</b><span>IA</span><small>Tutor GPT-5.6 Sol com contexto das suas fontes</small></button>
         <button class="tool-card" type="button" data-open-tab="study"><b>▣</b><span>Flashcards</span><small>Estudo livre por matéria ou tópico</small></button>
         <button class="tool-card" type="button" data-open-tab="quiz"><b>?</b><span>Quiz</span><small>Questões a partir dos seus cartões</small></button>
@@ -649,6 +676,7 @@
   <button class="bottom-tab active" data-tab="home"><b>⌂</b><span>Início</span></button>
   <button class="bottom-tab" data-tab="plan"><b>✓</b><span>Plano</span></button>
   <button class="bottom-tab" data-tab="session"><b>▶</b><span>Sessão</span></button>
+  <button class="bottom-tab" data-tab="mahjong"><b>麻</b><span>Mahjong</span></button>
   <button class="bottom-tab" data-tab="review"><b>↻</b><span>Revisão</span></button>
   <button class="bottom-tab" data-tab="more"><b>•••</b><span>Mais</span></button>
 </nav>
@@ -1080,7 +1108,7 @@ function planWeekday(date){const d=new Date(`${date}T12:00:00`);return ["DOM","S
 function planContinuousRow(date){const wd=planWeekday(date),map={SEG:["Anatomia","Histologia"],TER:["Semiologia",""] ,QUA:["RECUPERAÇÃO SEM2","MAD/Microbiologia"],QUI:["Fisiologia","SUS/Epidemiologia"],SEX:["PMH",""] ,SÁB:["RECUPERAÇÃO SEM2",""] ,DOM:["",""]},fam=map[wd]||["RECUPERAÇÃO SEM2",""];return{date,week:"",weekday:wd,sem2_sugestao_1_sem_prazo:fam[0],sem2_sugestao_2_sem_prazo:fam[1],sem2_estrategia_continua:"Estudo contínuo do semestre, sem prazo final. Priorize aulas novas, depois conteúdos ainda não estudados e revisões de maior necessidade.",edital_unit_1:"",edital_unit_2:"",edital_strategy:"Fora do cronograma de 7 semanas do edital: o semestre e as revisões continuam normalmente, sem prazo definido."}}
 function fillPlanControls(){const d=document.querySelector("#planDate"),r1=document.querySelector("#planReview1"),r2=document.querySelector("#planReview2");if(!d||!r1||!r2)return;if(!d.value)d.value=planCurrentDate();for(const el of [r1,r2]){const v=el.value||"Automático";el.innerHTML=PLAN_REVIEW_OPTIONS.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");if(PLAN_REVIEW_OPTIONS.includes(v))el.value=v}}
 function planReviewPick(selection,dayIndex,slot){let rows=planLiveSummaryBases("1º semestre","REV1");if(selection&&selection!=="Automático")rows=rows.filter(x=>planFamilyMatches(selection,x.subject));if(!rows.length){rows=planActiveBase().filter(x=>x.track==="REV1");if(selection&&selection!=="Automático")rows=rows.filter(x=>planFamilyMatches(selection,x.review_family||x.subject||""))}if(!rows.length)return null;rows.sort((a,b)=>{const ca=targetedCardsForBase(a),cb=targetedCardsForBase(b),pa=ca.length?Math.max(...ca.slice(0,20).map(cardReviewPriority)):40,pb=cb.length?Math.max(...cb.slice(0,20).map(cardReviewPriority)):40;return pb-pa||planAulaNumber(a.topic)-planAulaNumber(b.topic)});const lim=Math.min(rows.length,8),i=((Number(dayIndex||0)*2+Number(slot||0))%lim+lim)%lim;return rows[i]}
-function planSummaryHtml(base){if(!base)return"";const media=summaryMedia(base),imgs=media.images,embeds=media.embeds;return `${imgs.length?`<div class="summary-gallery">${imgs.map((z,i)=>`<figure><img src="${esc(z.src)}" alt="Imagem da própria fonte do resumo ${i+1}" loading="eager"><figcaption>${esc(z.label||`Figura da própria fonte ${i+1}`)}</figcaption></figure>`).join("")}</div>`:""}${embeds.length?`<div class="summary-source-embeds">${embeds.map(z=>`<div><div class="summary-source-embed ${z.kind==="image"?"is-image":""}"><iframe src="${esc(z.src)}" loading="eager" allow="fullscreen" title="Prévia aberta da fonte do resumo"></iframe></div><div class="summary-source-caption">${esc(z.label||"Prévia aberta do material-base")}</div></div>`).join("")}</div>`:""}<div class="plan-summary">${esc(base.summary||"")}</div>${base.key_terms?`<div><strong>Termos essenciais</strong><div class="key-terms">${splitList(base.key_terms).map(t=>`<span class="term-pill">${esc(t)}</span>`).join("")}</div></div>`:""}${base.remember?`<div><strong>O que preciso lembrar</strong><div class="remember-box">${esc(base.remember)}</div></div>`:""}`}
+function planSummaryHtml(base){if(!base)return"";return `<div class="plan-summary">${esc(base.summary||"")}</div>`}
 function planBaseSources(base){if(!base)return"";const urls=planLinksFromText(base.source_url||"");const mats=planMaterialsFor(base).flatMap(m=>planLinksFromText(m.file_url||m.source_url||""));const links=planSafeLinks([...urls,...mats]);return `${base.source_name?`<div class="muted">Fonte: ${esc(base.source_name)}</div>`:""}${links?`<div style="margin-top:8px">${links}</div>`:""}`}
 function planEditalRelatedHtml(unit){const related=planRelatedBase(unit);if(!related.length)return"";return `<div class="plan-related"><strong>Resumos já existentes para reaproveitar</strong>${related.map(b=>`<details><summary>${esc(b.title||b.topic)}</summary>${planSummaryHtml(b)}${planBaseSources(b)}</details>`).join("")}</div>`}
 function planTrackClass(track){const t=String(track||"").toUpperCase();if(t.includes("EDITAL"))return"track-edital";if(t.includes("SEM2"))return"track-sem2";if(t.includes("REVIS"))return"track-revisao";if(t.includes("QUEST"))return"track-questoes";return""}
