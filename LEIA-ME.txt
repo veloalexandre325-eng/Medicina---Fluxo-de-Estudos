@@ -1,0 +1,12 @@
+ARQUIVOS ALTERADOS — IMAGENS NA SESSÃO DE ESTUDOS
+
+Arquivos incluídos:
+- index.html
+- index_v28.html
+- index_mobile_corrigido_v28.html
+- sw.js
+
+Alteração principal:
+As imagens, termos essenciais e o bloco "O que preciso lembrar" dos resumos agora também aparecem quando o resumo é acessado pela Sessão de estudo.
+
+O sw.js também foi atualizado para usar um novo cache e evitar que o navegador mantenha a versão anterior.
