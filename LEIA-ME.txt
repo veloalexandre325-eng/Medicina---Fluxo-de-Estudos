@@ -1,4 +1,4 @@
-CORREÇÃO — ABA MAHJONG TRAVANDO
+CORREÇÃO MAHJONG — ABA RESTAURADA
 
 Arquivos alterados:
 - index.html
@@ -6,15 +6,11 @@ Arquivos alterados:
 - index_mobile_corrigido_v28.html
 - sw.js
 
-Mudanças:
-- Mahjong volta a aparecer como aba no app.
-- Existe somente 1 iframe/instância do jogo.
-- O jogo NÃO é carregado junto com a tela inicial.
-- O carregamento ocorre somente ao abrir a aba Mahjong.
-- Ativar outras abas não recria o Mahjong.
-- Botão "Recarregar jogo" reinicia apenas o Mahjong, sem recarregar o app inteiro.
-- Navegação mobile ajustada para incluir Mahjong.
-- Cache do Service Worker atualizado para medicina-v32-mahjong-lazy-fix.
-
-URL do módulo usado:
-https://mahjong-jardim-de-jade.li-kataoka2018.chatgpt.site/
+Correções:
+- Aba Mahjong restaurada no menu superior.
+- Aba Mahjong restaurada no menu inferior/mobile.
+- Atalho Mahjong restaurado em Mais.
+- Carregamento lazy: jogo só carrega ao entrar na aba.
+- Apenas uma instância do iframe.
+- Botão "Recarregar jogo" para reiniciar somente o Mahjong.
+- Cache atualizado para medicina-v33-mahjong-tab-restored.
