@@ -1,25 +1,20 @@
-APP MEDICINA v31 — MAHJONG INTEGRADO
+CORREÇÃO — ABA MAHJONG TRAVANDO
 
-Arquivo principal:
+Arquivos alterados:
 - index.html
+- index_v28.html
+- index_mobile_corrigido_v28.html
+- sw.js
 
-Modificações desta versão:
-- nova aba “Mahjong” no menu superior;
-- novo botão “Mahjong” na barra inferior do celular;
-- atalho para o jogo dentro da seção “Mais”;
-- jogo carregado dentro do app de Medicina;
-- botão para abrir o Mahjong em tela cheia;
-- navegação inferior ajustada para seis opções;
-- interface responsiva para computador e celular.
+Mudanças:
+- Mahjong volta a aparecer como aba no app.
+- Existe somente 1 iframe/instância do jogo.
+- O jogo NÃO é carregado junto com a tela inicial.
+- O carregamento ocorre somente ao abrir a aba Mahjong.
+- Ativar outras abas não recria o Mahjong.
+- Botão "Recarregar jogo" reinicia apenas o Mahjong, sem recarregar o app inteiro.
+- Navegação mobile ajustada para incluir Mahjong.
+- Cache do Service Worker atualizado para medicina-v32-mahjong-lazy-fix.
 
-COMO ABRIR
-1. Mantenha conexão com a internet para carregar o Mahjong.
-2. Abra o arquivo index.html no navegador.
-3. Entre na aba Mahjong.
-
-COMO PUBLICAR
-Envie todo o conteúdo desta pasta para o mesmo serviço em que o app de
-Medicina está hospedado. O arquivo index.html deve permanecer na raiz.
-
-Observação: o Mahjong é carregado a partir da versão publicada do jogo. Assim,
-as futuras atualizações do jogo aparecem automaticamente dentro desta aba.
+URL do módulo usado:
+https://mahjong-jardim-de-jade.li-kataoka2018.chatgpt.site/
