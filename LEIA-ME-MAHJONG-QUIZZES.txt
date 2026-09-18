@@ -1,0 +1,27 @@
+MAHJONG — INTEGRAÇÃO COM O BANCO QUIZZES
+
+ALTERAÇÕES
+- Mahjong agora usa a aba QUIZZES da planilha canônica.
+- Filtros em cascata: Semestre > Matéria > Tópico.
+- O contador mostra quantas questões existem no recorte escolhido.
+- As perguntas são sorteadas sem repetição até esgotar o recorte.
+- 1 questão por combinação.
+- 2 questões ao usar um poder.
+- 1 questão/caso clínico ao vencer.
+- 10 questões no mini-quiz de recuperação ao perder.
+- Feedback e gabarito vêm da própria aba QUIZZES.
+- O banco sincronizado fica salvo no IndexedDB para reutilização local.
+
+BANCO VALIDADO EM 18/09/2026
+- 1.251 questões (QZ0001 a QZ1251)
+- 2 semestres
+- 12 matérias
+- 114 tópicos
+
+IMPORTANTE
+O arquivo GOOGLE_APPS_SCRIPT_QUOTA_OTIMIZADO.gs também foi alterado para enviar `quizzes` no payload da sincronização.
+Para a versão publicada receber o banco QUIZZES, substitua o código do Apps Script pelo arquivo desta pasta e publique uma nova versão da implantação web /exec.
+Depois abra o app e use Dados e sincronização > Sincronizar agora.
+
+CACHE PWA
+medicina-v34-mahjong-quiz-bank

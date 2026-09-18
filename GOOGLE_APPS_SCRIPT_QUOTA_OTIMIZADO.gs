@@ -16,13 +16,19 @@ const SHEET_BASE_PLANO = 'BASE_PLANO_ESTUDOS';
 const SHEET_PLANO_7_SEMANAS = 'PLANO_7_SEMANAS';
 const SHEET_CONFIG_PLANO = 'CONFIG_PLANO';
 const SHEET_APP_PROGRESS = 'APP_PROGRESS';
+const SHEET_QUIZZES = 'QUIZZES';
+
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
+const DEFAULT_OPENAI_MODEL = 'gpt-5.6-sol';
+const AI_RESULT_PREFIX = 'medicina_ai_result_v1_';
+const AI_RESULT_TTL = 600;
 
 const DEFAULT_CALLBACK = '__receiveFlashcardsSheetSync';
 
 // Cache curto para impedir que o iPhone releia toda a planilha a cada abertura.
 // 300 s = 5 minutos.
 const CACHE_TTL_SECONDS = 300;
-const CACHE_PREFIX = 'medicina_api_v8_';
+const CACHE_PREFIX = 'medicina_api_v9_';
 const CACHE_META_KEY = CACHE_PREFIX + 'meta';
 const CACHE_CHUNK_PREFIX = CACHE_PREFIX + 'chunk_';
 // Mantemos os blocos pequenos para ficar abaixo do limite por item do CacheService.
@@ -37,8 +43,6 @@ function doGet(e) {
   ).toLowerCase();
 
   try {
-    if(action === 'aistatus') return jsonp_(callback, aiStatus_());
-    if(action === 'airesult') return jsonp_(callback, aiReadResult_(e.parameter.requestId));
     // Ping não acessa a planilha e praticamente não consome quota de Sheets.
     if (action === 'ping') {
       return jsonp_(callback, {
@@ -47,8 +51,12 @@ function doGet(e) {
         spreadsheetId: SPREADSHEET_ID,
         spreadsheetName: SPREADSHEET_NAME,
         generatedAt: new Date().toISOString(),
-        apiVersion: 8
+        apiVersion: 9
       });
+    }
+
+    if (action === 'airesult') {
+      return jsonp_(callback, getAiResult_((e && e.parameter && e.parameter.id) || ''));
     }
 
     // Permite forçar atualização do cache quando necessário.
@@ -65,7 +73,7 @@ function doGet(e) {
       error: String(err && err.message ? err.message : err),
       spreadsheetId: SPREADSHEET_ID,
       generatedAt: new Date().toISOString(),
-      apiVersion: 8
+      apiVersion: 9
     });
   }
 }
@@ -78,7 +86,9 @@ function doPost(e) {
     );
     const action = String(body.action || '').toLowerCase();
 
-    if (action === 'generate') return aiGenerate_(body);
+    if (action === 'ai') {
+      return handleAiPost_(body);
+    }
 
     if (action !== 'saveprogress') {
       throw new Error('Ação POST inválida.');
@@ -106,7 +116,7 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({
         ok: true,
         savedAt: new Date().toISOString(),
-        apiVersion: 8
+        apiVersion: 9
       }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -115,11 +125,228 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({
         ok: false,
         error: String(err && err.message ? err.message : err),
-        apiVersion: 8
+        apiVersion: 9
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
+
+
+function handleAiPost_(body) {
+  const requestId = safeAiRequestId_(body && body.request_id);
+  if (!requestId) throw new Error('Identificador de solicitação de IA inválido.');
+  const cache = CacheService.getScriptCache();
+  cache.put(AI_RESULT_PREFIX + requestId, JSON.stringify({ ok: true, status: 'working' }), AI_RESULT_TTL);
+
+  try {
+    const result = runOpenAiTutor_(body || {});
+    cache.put(AI_RESULT_PREFIX + requestId, JSON.stringify({
+      ok: true,
+      status: 'done',
+      text: result.text,
+      model: result.model,
+      sources: result.sources || [],
+      completedAt: new Date().toISOString()
+    }), AI_RESULT_TTL);
+    return jsonOutput_({ ok: true, status: 'accepted', requestId: requestId, apiVersion: 9 });
+  } catch (err) {
+    const message = String(err && err.message ? err.message : err);
+    cache.put(AI_RESULT_PREFIX + requestId, JSON.stringify({ ok: false, status: 'error', error: message }), AI_RESULT_TTL);
+    return jsonOutput_({ ok: false, status: 'error', error: message, requestId: requestId, apiVersion: 9 });
+  }
+}
+
+function getAiResult_(requestId) {
+  const id = safeAiRequestId_(requestId);
+  if (!id) return { ok: false, status: 'error', error: 'Identificador de IA inválido.' };
+  const raw = CacheService.getScriptCache().get(AI_RESULT_PREFIX + id);
+  if (!raw) return { ok: true, status: 'pending' };
+  try { return JSON.parse(raw); } catch (_) { return { ok: true, status: 'pending' }; }
+}
+
+function safeAiRequestId_(value) {
+  const s = String(value || '').trim();
+  return /^[A-Za-z0-9_]{8,120}$/.test(s) ? s : '';
+}
+
+function jsonOutput_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function checkAiDailyLimit_() {
+  const props = PropertiesService.getScriptProperties();
+  const limit = Math.max(1, Number(props.getProperty('AI_DAILY_LIMIT') || 150));
+  const tz = Session.getScriptTimeZone() || 'America/Sao_Paulo';
+  const day = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const key = 'AI_COUNT_' + day;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const count = Number(props.getProperty(key) || 0);
+    if (count >= limit) throw new Error('Limite diário da IA atingido (' + limit + '). Ajuste AI_DAILY_LIMIT nas Propriedades do script se desejar.');
+    props.setProperty(key, String(count + 1));
+  } finally {
+    try { if (lock.hasLock()) lock.releaseLock(); } catch (_) {}
+  }
+}
+
+function runOpenAiTutor_(body) {
+  const props = PropertiesService.getScriptProperties();
+  const apiKey = String(props.getProperty('OPENAI_API_KEY') || '').trim();
+  if (!apiKey) throw new Error('IA ainda não configurada. Adicione OPENAI_API_KEY em Configurações do projeto > Propriedades do script no Apps Script.');
+  const model = String(props.getProperty('OPENAI_MODEL') || DEFAULT_OPENAI_MODEL).trim() || DEFAULT_OPENAI_MODEL;
+  const prompt = String(body.prompt || '').trim().substring(0, 6000);
+  if (!prompt) throw new Error('Pergunta vazia.');
+
+  const ctx = buildAiStudyContext_(body);
+  const strict = body.strict_sources !== false && String(body.strict_sources) !== 'false';
+  const mode = String(body.mode || 'tutor').toLowerCase();
+  const modeInstruction = {
+    tutor: 'Atue como tutor: explique, faça conexões e responda objetivamente ao que foi perguntado.',
+    explain: 'Explique passo a passo, do fundamento ao raciocínio aplicado, destacando confusões frequentes.',
+    quiz: 'Atue como avaliador. Faça preferencialmente uma questão por vez e, quando houver resposta do estudante no histórico, corrija com feedback antes de continuar.',
+    summary: 'Produza uma revisão curta, hierarquizada e de alto rendimento para prova.',
+    mnemonic: 'Crie mnemônicas úteis e, quando couber, um diagrama textual simples e fiel ao conteúdo.'
+  }[mode] || 'Atue como tutor de Medicina.';
+
+  const history = Array.isArray(body.history) ? body.history.slice(-8).map(function(m){
+    const role = String(m && m.role || '') === 'assistant' ? 'Assistente' : 'Estudante';
+    return role + ': ' + String(m && m.text || '').substring(0, 2500);
+  }).join('\n') : '';
+
+  const instructions = [
+    'Você é a IA tutora do App Medicina de uma estudante de Medicina no Brasil.',
+    'Responda em português do Brasil, com precisão técnica e didática.',
+    modeInstruction,
+    'A base abaixo foi recuperada da planilha de estudos da estudante. Preserve a terminologia e o enquadramento das fontes.',
+    strict
+      ? 'REGRA DE FONTE: responda somente com o que a BASE DE ESTUDOS suporta. Se faltar informação, diga explicitamente que a base fornecida não sustenta aquele ponto. Não complete silenciosamente com conhecimento geral.'
+      : 'REGRA DE FONTE: use a base como prioridade. Você pode complementar com conhecimento médico geral quando isso ajudar, mas rotule claramente esse trecho como “Complemento do modelo” e não invente referências.',
+    'Nunca invente uma fonte, aula, número, imagem, diagnóstico ou diretriz. Não diga que acessou um link que não aparece na base.',
+    'Quando houver conflito entre uma fonte da aula e conhecimento geral, descreva o que a fonte da aula afirma antes de qualquer complemento.',
+    'Para perguntas clínicas, diferencie explicação educacional de orientação médica individual.'
+  ].join('\n');
+
+  const input = [
+    history ? 'HISTÓRICO RECENTE\n' + history : '',
+    'PERGUNTA ATUAL\n' + prompt,
+    'BASE DE ESTUDOS RECUPERADA\n' + ctx.text
+  ].filter(Boolean).join('\n\n---\n\n');
+
+  const payload = {
+    model: model,
+    store: false,
+    reasoning: { effort: 'medium' },
+    max_output_tokens: 2200,
+    instructions: instructions,
+    input: input
+  };
+
+  checkAiDailyLimit_();
+
+  const response = UrlFetchApp.fetch(OPENAI_RESPONSES_URL, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + apiKey },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  const code = response.getResponseCode();
+  const raw = response.getContentText();
+  let data = {};
+  try { data = JSON.parse(raw || '{}'); } catch (_) {}
+  if (code < 200 || code >= 300) {
+    const msg = data && data.error && data.error.message ? data.error.message : ('OpenAI retornou HTTP ' + code + '.');
+    throw new Error(msg);
+  }
+  const text = extractOpenAiText_(data);
+  if (!text) throw new Error('A OpenAI não retornou texto nesta tentativa.');
+  return { text: text, model: data.model || model, sources: ctx.sources.map(function(s){ return {name:s.name,url:s.url}; }) };
+}
+
+function extractOpenAiText_(data) {
+  if (data && typeof data.output_text === 'string' && data.output_text.trim()) return data.output_text.trim();
+  const parts = [];
+  (data && Array.isArray(data.output) ? data.output : []).forEach(function(item){
+    (item && Array.isArray(item.content) ? item.content : []).forEach(function(c){
+      if (c && c.type === 'output_text' && c.text) parts.push(String(c.text));
+    });
+  });
+  return parts.join('\n').trim();
+}
+
+function buildAiStudyContext_(body) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const summaries = readObjects_(ss.getSheetByName(SHEET_RESUMOS));
+  const materials = readObjects_(ss.getSheetByName(SHEET_MATERIAIS));
+  const cards = readFlashcards_(ss.getSheetByName(SHEET_FLASHCARDS));
+  const quizSheet = ss.getSheetByName(SHEET_QUIZZES);
+  const quizzes = quizSheet ? readObjects_(quizSheet) : [];
+  const wanted = {
+    semester: String(body.semester || '').trim(),
+    subject: String(body.subject || '').trim(),
+    topic: String(body.topic || '').trim()
+  };
+  const tokens = aiTokens_(String(body.prompt || '') + ' ' + wanted.subject + ' ' + wanted.topic);
+
+  function rank(list, fields, limit) {
+    return list.map(function(x){ return { x: x, score: aiScore_(x, fields, tokens, wanted) }; })
+      .filter(function(z){ return z.score > 0; })
+      .sort(function(a,b){ return b.score - a.score; })
+      .slice(0, limit).map(function(z){ return z.x; });
+  }
+
+  const sumTop = rank(summaries, ['semester','subject','topic','title','summary','key_terms','remember','source_name'], 3);
+  const matTop = rank(materials, ['semester','subject','topic','title','description','source_name','source_kind'], 5);
+  const cardTop = rank(cards, ['semester','subject','question','answer','sourceName','source_name'], 8);
+  const quizTop = rank(quizzes, ['semester','subject','topic','stem','correct_answer','feedback','source_name'], 8);
+
+  const blocks = [];
+  const sources = [];
+  sumTop.forEach(function(x,i){
+    blocks.push('RESUMO ' + (i+1) + '\nMatéria: ' + (x.subject||'') + '\nAula: ' + (x.topic||'') + '\n' + aiClip_(x.summary, 6500) + (x.remember ? '\nO que lembrar: ' + aiClip_(x.remember,1200) : ''));
+    aiAddSource_(sources, x.source_name || x.title || x.topic, x.source_url || '');
+  });
+  cardTop.forEach(function(x,i){ blocks.push('FLASHCARD ' + (i+1) + ': ' + aiClip_(x.question,700) + ' => ' + aiClip_(x.answer,1000)); aiAddSource_(sources, x.sourceName || x.source_name, x.sourceUrl || x.source_url || ''); });
+  quizTop.forEach(function(x,i){ blocks.push('QUESTÃO DO BANCO ' + (i+1) + ': ' + aiClip_(x.stem,900) + '\nGabarito: ' + aiClip_(x.correct_answer,700) + (x.feedback ? '\nFeedback: ' + aiClip_(x.feedback,900) : '')); aiAddSource_(sources, x.source_name, x.source_url || ''); });
+  matTop.forEach(function(x,i){ blocks.push('MATERIAL ' + (i+1) + ': ' + [x.title,x.description,x.source_name].filter(Boolean).join(' — ')); aiAddSource_(sources, x.source_name || x.title, x.source_url || x.file_url || ''); });
+
+  if (!blocks.length) blocks.push('Nenhum trecho específico foi localizado para esta pergunta na base sincronizada.');
+  return { text: aiClip_(blocks.join('\n\n'), 30000), sources: sources.slice(0, 10) };
+}
+
+function aiScore_(obj, fields, tokens, wanted) {
+  const norm = aiNorm_;
+  let score = 0;
+  const sem = String(obj.semester || '');
+  const sub = String(obj.subject || '');
+  const topic = String(obj.topic || obj.topics || '');
+  if (wanted.semester && norm(sem) === norm(wanted.semester)) score += 18;
+  if (wanted.subject && norm(sub) === norm(wanted.subject)) score += 30;
+  else if (wanted.subject && norm(sub).indexOf(norm(wanted.subject)) >= 0) score += 16;
+  if (wanted.topic && norm(topic) === norm(wanted.topic)) score += 36;
+  else if (wanted.topic && norm(topic).indexOf(norm(wanted.topic)) >= 0) score += 18;
+  const hay = norm(fields.map(function(f){ return obj[f] || ''; }).join(' '));
+  tokens.forEach(function(t){ if (hay.indexOf(t) >= 0) score += t.length >= 7 ? 4 : 2; });
+  return score;
+}
+
+function aiTokens_(text) {
+  const stop = { 'para':1,'como':1,'qual':1,'quais':1,'porque':1,'por':1,'que':1,'uma':1,'com':1,'sem':1,'dos':1,'das':1,'este':1,'esta':1,'isso':1,'mais':1,'aula':1 };
+  return aiNorm_(text).split(/\s+/).filter(function(t){ return t.length >= 4 && !stop[t]; }).slice(0, 30);
+}
+function aiNorm_(value) { return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
+function aiClip_(value, max) { const s = String(value || '').trim(); return s.length > max ? s.substring(0,max) + '…' : s; }
+function aiAddSource_(arr, name, url) {
+  const n = String(name || '').trim();
+  const raw = String(url || '').trim();
+  const match = raw.match(/https?:\/\/[^\s<>'"]+/i);
+  const u = match ? match[0] : '';
+  if (!n && !u) return;
+  const key = n + '|' + u; if (arr.some(function(x){ return x.key === key; })) return;
+  arr.push({ key:key, name:n || 'Fonte da base', url:u });
+}
+
 
 function getCachedOrBuildPayload_() {
   const cached = readPayloadCache_();
@@ -160,16 +387,19 @@ function buildPayload_() {
   const studyPlan = readObjects_(ss.getSheetByName(SHEET_PLANO_7_SEMANAS));
   const planConfig = readPlanConfig_(ss.getSheetByName(SHEET_CONFIG_PLANO));
   const cloudProgress = readCloudProgress_(ss.getSheetByName(SHEET_APP_PROGRESS));
+  const quizzes = readObjects_(ss.getSheetByName(SHEET_QUIZZES)).filter(function(q){
+    const active = String(q.active == null ? '' : q.active).trim().toLowerCase();
+    return !active || !['false','0','não','nao','inativo'].includes(active);
+  });
 
   return {
     ok: true,
     spreadsheetId: ss.getId(),
     spreadsheetName: ss.getName(),
     generatedAt: new Date().toISOString(),
-    apiVersion: 8,
+    apiVersion: 9,
     cacheSeconds: CACHE_TTL_SECONDS,
     cards: cards,
-    quizzes: readExamQuestions_(ss.getSheetByName('QUIZZES')),
     summaries: summaries,
     summaryConfig: summaryConfig,
     summaryModelVersion: summaryConfig.summary_model || 'RICH_SOURCE_V1',
@@ -179,13 +409,15 @@ function buildPayload_() {
     studyPlan: studyPlan,
     planConfig: planConfig,
     cloudProgress: cloudProgress,
+    quizzes: quizzes,
     counts: {
       cards: cards.length,
       summaries: summaries.length,
       materials: materials.length,
       editalUnits: editalUnits.length,
       planBase: planBase.length,
-      studyDays: studyPlan.length
+      studyDays: studyPlan.length,
+      quizzes: quizzes.length
     }
   };
 }
@@ -569,15 +801,4 @@ function testarPlanilha() {
 function limparCache() {
   clearPayloadCache_();
   return 'Cache limpo.';
-}
-
-/** A aba QUIZZES é opcional; usa o gabarito por letra para evitar divergências textuais. */
-function readExamQuestions_(sheet) {
-  if(!sheet)return [];
-  return readObjects_(sheet).filter(x=>String(x.active||'TRUE').toUpperCase()!=='FALSE').map(x=>{
-    const indexed=['a','b','c','d','e'].map(letter=>({letter:letter.toUpperCase(),text:String(x['option_'+letter]||'').trim()})).filter(o=>o.text);
-    const correct=indexed.find(o=>o.letter===String(x.correct_option||'').trim().toUpperCase());
-    if(!x.quiz_id||!x.stem||!correct||indexed.length<2||new Set(indexed.map(o=>o.text.toLowerCase())).size!==indexed.length)return null;
-    return {id:'quiz:'+x.quiz_id,syncKey:'quiz:'+x.quiz_id,semester:x.semester,subject:x.subject,topics:[x.topic],question:x.stem,answer:correct.text,distractors:indexed.filter(o=>o!==correct).map(o=>o.text),explanation:x.feedback||'',difficulty:x.difficulty,sourceName:x.source_name,sourceUrl:x.source_url,sourceKind:'quiz_banco',isExamQuestion:true};
-  }).filter(Boolean);
 }
