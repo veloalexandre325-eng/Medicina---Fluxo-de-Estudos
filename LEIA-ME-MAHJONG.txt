@@ -1,0 +1,18 @@
+CORREÇÃO MAHJONG v35
+
+- Banco QUIZZES embutido no app: 1.251 questões.
+- Seleção visível: Semestre > Matéria > Tópico.
+- Banco atual: 2 semestres, 12 matérias, 114 tópicos.
+- Tabuleiro de prévia aparece imediatamente ao abrir a aba Mahjong.
+- O jogo só começa ao tocar em "Iniciar Mahjong".
+- Combinação: 1 questão.
+- Poder: 2 questões.
+- Vitória: 1 caso clínico.
+- Derrota: mini-quiz de 10 questões.
+- Cache: medicina-v35-mahjong-visible-bank.
+
+Arquivos alterados:
+index.html
+index_v28.html
+index_mobile_corrigido_v28.html
+sw.js
