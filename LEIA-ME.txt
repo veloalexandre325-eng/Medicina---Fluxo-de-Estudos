@@ -1,16 +1,13 @@
-CORREÇÃO MAHJONG — ABA RESTAURADA
+CORREÇÃO MAHJONG — PODERES + FLUIDEZ
 
-Arquivos alterados:
-- index.html
-- index_v28.html
-- index_mobile_corrigido_v28.html
-- sw.js
+Alterações:
+- Poder Embaralhar: após 2 questões, embaralha as peças restantes e garante pelo menos uma jogada possível.
+- Poder Dica: após 2 questões, destaca visualmente as duas peças do par por alguns segundos.
+- Poder Desfazer: só inicia as 2 questões quando existe um último par para restaurar; depois restaura esse par.
+- Botões dos poderes ficam desativados durante perguntas/ações e quando não podem ser usados.
+- Classificações Semestre/Matéria/Tópico/Dificuldade não aparecem durante as perguntas do Mahjong.
+- Tabuleiro reutiliza os elementos das peças em vez de reconstruir todo o HTML a cada toque.
+- Sombras/transições foram suavizadas para reduzir trabalho de renderização no celular.
+- Cache PWA: medicina-v36-mahjong-powers-fluid.
 
-Correções:
-- Aba Mahjong restaurada no menu superior.
-- Aba Mahjong restaurada no menu inferior/mobile.
-- Atalho Mahjong restaurado em Mais.
-- Carregamento lazy: jogo só carrega ao entrar na aba.
-- Apenas uma instância do iframe.
-- Botão "Recarregar jogo" para reiniciar somente o Mahjong.
-- Cache atualizado para medicina-v33-mahjong-tab-restored.
+Não houve acesso nem alteração da planilha nesta correção.
